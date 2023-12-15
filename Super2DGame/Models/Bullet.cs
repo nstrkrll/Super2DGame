@@ -5,10 +5,16 @@
         private PictureBox _bulletEntity;
         private int _bulletSize;
         private Directions _direction;
+        private bool _isEnemyBullet;
 
         public PictureBox BulletEntity
         {
             get => _bulletEntity;
+        }
+
+        public bool IsEnemyBullet
+        {
+            get => _isEnemyBullet;
         }
 
         public Bullet(Directions direction, Tank tank) 
@@ -30,6 +36,8 @@
                     initPoint = new Point(tank.TankEntity.Left + tank.TankSize / 2 - _bulletSize / 2, tank.TankEntity.Bottom + _bulletSize / 2);
                     break;
             }
+
+            _isEnemyBullet = tank.IsEnemy;
 
             _bulletEntity = new PictureBox
             {

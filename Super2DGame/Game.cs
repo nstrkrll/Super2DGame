@@ -17,22 +17,24 @@ namespace Super2DGame
             InitializeComponent();
             this.Text = "Tank Game";
             this.Size = new Size(600, 600);
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.KeyDown += TankGame_KeyDown;
+            this.KeyUp += TankGame_KeyUp;
             _random = new Random();
             _directions = Enum.GetValues(typeof(Directions));
             _bullets = new List<Bullet>();
             _enemyTanks = new List<Tank>();
-            _gameTimer = new System.Windows.Forms.Timer();
             _timerCounter = 0;
+            InitializeGame();
+            _gameTimer = new System.Windows.Forms.Timer();
             _gameTimer.Interval = 16;
             _gameTimer.Tick += GameTimer_Tick;
-            InitializeGame();
             _gameTimer.Start();
         }
 
         private void InitializeGame()
         {
-            _player = new Tank(@"Resources\Images\player.png", 30, 10, 5, new Point(this.ClientSize.Width / 2, this.ClientSize.Height - 100), Directions.Top);
+            _player = new Tank(@"Resources\Images\player.png", 30, 5, 5, new Point(this.ClientSize.Width / 2, this.ClientSize.Height - 100), Directions.Top, false);
             this.Controls.Add(_player.TankEntity);
             for (int i = 0; i < 3; i++)
             {
@@ -42,6 +44,11 @@ namespace Super2DGame
 
         private void GameTimer_Tick(object sender, EventArgs e)
         {
+            if (_player.CanMove())
+            {
+                _player.MoveTank();
+            }
+
             if (_timerCounter == 80)
             {
                 RandomRotateAllEnemyTanks();
@@ -51,10 +58,11 @@ namespace Super2DGame
             MoveBullets();
             MoveEnemyTanks();
             CheckCollisions();
+            RandomEnemyTankFire();
             _player.UpdateReloadTimeout();
-            foreach (var enemies in _enemyTanks)
+            foreach (var enemyTank in _enemyTanks)
             {
-                enemies.UpdateReloadTimeout();
+                enemyTank.UpdateReloadTimeout();
             }
 
             _timerCounter++;
@@ -62,7 +70,7 @@ namespace Super2DGame
 
         private void SpawnNewEnemyTank()
         {
-            var enemyTank = new Tank(@"Resources\Images\enemy.png", 30, 2, 15, new Point(_random.Next(0, this.ClientSize.Width - 50), 10), Directions.Bottom);
+            var enemyTank = new Tank(@"Resources\Images\enemy.png", 30, 2, 35, new Point(_random.Next(0, this.ClientSize.Width - 50), 10), Directions.Bottom, true);
             _enemyTanks.Add(enemyTank);
             this.Controls.Add(enemyTank.TankEntity);
         }
@@ -71,22 +79,26 @@ namespace Super2DGame
         {
             if (e.KeyCode == Keys.A && _player.TankEntity.Left > 0)
             {
-                _player.MoveTank(Directions.Left);
+                _player.RotateTank(Directions.Left);
+                _player.IsMoveLeftKeyPressed = true;
             }
 
             if (e.KeyCode == Keys.D && _player.TankEntity.Right < this.ClientSize.Width)
             {
-                _player.MoveTank(Directions.Right);
+                _player.RotateTank(Directions.Right);
+                _player.IsMoveRightKeyPressed = true;
             }
 
             if (e.KeyCode == Keys.W && _player.TankEntity.Top > 0)
             {
-                _player.MoveTank(Directions.Top);
+                _player.RotateTank(Directions.Top);
+                _player.IsMoveTopKeyPressed = true;
             }
 
             if (e.KeyCode == Keys.S && _player.TankEntity.Bottom < this.ClientSize.Height)
             {
-                _player.MoveTank(Directions.Bottom);
+                _player.RotateTank(Directions.Bottom);
+                _player.IsMoveBottomKeyPressed = true;
             }
 
             if (e.KeyCode == Keys.Space && _player.IsCanFire)
@@ -94,6 +106,29 @@ namespace Super2DGame
                 Bullet bullet = _player.Fire();
                 _bullets.Add(bullet);
                 this.Controls.Add(bullet.BulletEntity);
+            }
+        }
+
+        private void TankGame_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.A)
+            {
+                _player.IsMoveLeftKeyPressed = false;
+            }
+
+            if (e.KeyCode == Keys.D)
+            {
+                _player.IsMoveRightKeyPressed = false;
+            }
+
+            if (e.KeyCode == Keys.W)
+            {
+                _player.IsMoveTopKeyPressed = false;
+            }
+
+            if (e.KeyCode == Keys.S)
+            {
+                _player.IsMoveBottomKeyPressed = false;
             }
         }
 
@@ -125,6 +160,17 @@ namespace Super2DGame
                     _bullets.Remove(bullet);
                     this.Controls.Remove(bullet.BulletEntity);
                 }
+            }
+        }
+
+        private void RandomEnemyTankFire()
+        {
+            int tankNumber = _random.Next(0, _enemyTanks.Count);
+            if (_enemyTanks[tankNumber].IsCanFire)
+            {
+                Bullet bullet = _enemyTanks[tankNumber].Fire();
+                _bullets.Add(bullet);
+                this.Controls.Add(bullet.BulletEntity);
             }
         }
 
@@ -172,11 +218,17 @@ namespace Super2DGame
 
         private void CheckCollisions()
         {
+            CheckBulletCollisions();
+            CheckEnemyTanksCollisions();
+        }
+
+        private void CheckBulletCollisions()
+        {
             foreach (var bullet in _bullets)
             {
                 foreach (var enemyTank in _enemyTanks)
                 {
-                    if (bullet.BulletEntity.Bounds.IntersectsWith(enemyTank.TankEntity.Bounds))
+                    if (bullet.BulletEntity.Bounds.IntersectsWith(enemyTank.TankEntity.Bounds) && !bullet.IsEnemyBullet)
                     {
                         _bullets.Remove(bullet);
                         this.Controls.Remove(bullet.BulletEntity);
@@ -184,6 +236,32 @@ namespace Super2DGame
                         this.Controls.Remove(enemyTank.TankEntity);
                         SpawnNewEnemyTank();
                         return;
+                    }
+                }
+
+                if (bullet.BulletEntity.Bounds.IntersectsWith(_player.TankEntity.Bounds) && bullet.IsEnemyBullet)
+                {
+                    _bullets.Remove(bullet);
+                    this.Controls.Remove(bullet.BulletEntity);
+                    this.Controls.Remove(_player.TankEntity);
+                    _gameTimer.Stop();
+                    MessageBox.Show("Game Over");
+                    return;
+                }
+            }
+        }
+
+        private void CheckEnemyTanksCollisions()
+        {
+            foreach (var enemyTank in _enemyTanks)
+            {
+                foreach (var otherEnemyTank in _enemyTanks)
+                {
+                    if (enemyTank != otherEnemyTank && enemyTank.TankEntity.Bounds.IntersectsWith(otherEnemyTank.TankEntity.Bounds))
+                    {
+                        otherEnemyTank.ReverseCurrentDirection();
+                        enemyTank.ReverseCurrentDirection();
+                        MoveEnemyTanks();
                     }
                 }
             }

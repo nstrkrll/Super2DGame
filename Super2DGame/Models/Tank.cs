@@ -11,6 +11,12 @@
         private int _reloadTimeout;
         private int _currentReloadTimeout;
         private Directions _currentDirection;
+        private bool _isEnemy;
+        private bool _isTankMove;
+        private bool _isMoveLeftKeyPressed;
+        private bool _isMoveTopKeyPressed;
+        private bool _isMoveRightKeyPressed;
+        private bool _isMoveBottomKeyPressed;
 
         public PictureBox TankEntity
         {
@@ -27,13 +33,55 @@
             get => _isCanFire;
         }
 
-        public Tank(string tankImagePath, int tankSize, int tankSpeed, int reloadTimeout, Point initLocation, Directions initDirection)
+        public bool IsEnemy
+        {
+            get => _isEnemy;
+        }
+
+        public bool IsTankMove
+        {
+            get => _isTankMove;
+            set => _isTankMove = value;
+        }
+
+        public bool IsMoveLeftKeyPressed
+        {
+            get => _isMoveLeftKeyPressed;
+            set => _isMoveLeftKeyPressed = value;
+        }
+
+        public bool IsMoveTopKeyPressed
+        {
+            get => _isMoveTopKeyPressed;
+            set => _isMoveTopKeyPressed = value;
+        }
+
+        public bool IsMoveRightKeyPressed
+        {
+            get => _isMoveRightKeyPressed;
+            set => _isMoveRightKeyPressed = value;
+        }
+
+        public bool IsMoveBottomKeyPressed
+        {
+            get => _isMoveBottomKeyPressed;
+            set => _isMoveBottomKeyPressed = value;
+        }
+
+        public Tank(string tankImagePath, int tankSize, int tankSpeed, int reloadTimeout, Point initLocation, Directions initDirection, bool isEnemy)
         {
             _imagePath = tankImagePath;
             _tankBitmap = new Bitmap(Image.FromFile(_imagePath));
             _tankSize = tankSize;
             _tankSpeed = tankSpeed;
+            _isCanFire = true;
             _reloadTimeout = reloadTimeout;
+            _isEnemy = isEnemy;
+            _isTankMove = false;
+            _isMoveLeftKeyPressed = false;
+            _isMoveTopKeyPressed = false;
+            _isMoveRightKeyPressed = false;
+            _isMoveBottomKeyPressed = false;
             _tankEntity = new PictureBox
             {
                 Size = new Size(_tankSize, _tankSize),
@@ -106,8 +154,19 @@
             RotateTank(newDirection);
         }
 
+        public bool CanMove()
+        {
+            if (IsMoveLeftKeyPressed || IsMoveRightKeyPressed || IsMoveTopKeyPressed || IsMoveBottomKeyPressed)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public void MoveTank(Directions direction)
         {
+            _isTankMove = true;
             RotateTank(direction);
             MoveTank();
         }
@@ -131,8 +190,17 @@
             }
         }
 
+        private void StopTank()
+        {
+            _isMoveLeftKeyPressed = false;
+            _isMoveTopKeyPressed = false;
+            _isMoveRightKeyPressed = false;
+            _isMoveBottomKeyPressed = false;
+        }
+
         public Bullet Fire()
         {
+            StopTank();
             _isCanFire = false;
             return new Bullet(_currentDirection, this);
         }
